@@ -10,6 +10,8 @@ from typing import List
 
 import logging
 
+pd.options.mode.chained_assignment = None 
+
 logging.basicConfig(level = logging.INFO)
 logger = logging.getLogger(name="FootballReferenceScraper")
 
@@ -92,7 +94,7 @@ def raw_scrape_fbref_matches(url: str, columns: List[str] = c.FBREF_COLUMNS) -> 
     logger.info(f"Successfully scraped {url}")
     return raw_df
 
-def clean_fbref_matches(match_df: pd.DataFrame, league: str) -> pd.DataFrame:
+def clean_fbref_matches(match_df: pd.DataFrame, league: str, season: int) -> pd.DataFrame:
     """Cleans scraped FBRef scores to a usable modeling format
 
     Parameters
@@ -111,6 +113,7 @@ def clean_fbref_matches(match_df: pd.DataFrame, league: str) -> pd.DataFrame:
     subset_df = match_df[(match_df[c.HOME] != "") & (match_df[c.HOME] != "")].reset_index(drop=True)
 
     subset_df[c.LEAGUE] = league
+    subset_df[c.SEASON] = season
 
     home_score, away_score = list(), list()
 
@@ -155,7 +158,7 @@ def scrape_league_season(league: str, season: int) -> pd.DataFrame:
 
     url = get_fbref_url(league=league, season=season)
     raw_df = raw_scrape_fbref_matches(url=url)
-    clean_df = clean_fbref_matches(match_df=raw_df, league=league)
+    clean_df = clean_fbref_matches(match_df=raw_df, league=league, season=season)
 
     return clean_df
 
@@ -193,8 +196,58 @@ def scrape_leagues_seasons(seasons: List[int], leagues: List[str] = c.ENGLISH_LE
     logging.info(f"Successfully scraped data for {len(leagues)} leagues and {len(seasons)} seasons of EFL match results!")
 
     if to_csv: 
-        match_data.to_csv(c.MATCH_DATA_CSV)
+        match_data.to_csv(c.MATCH_DATA_CSV, index=False)
         return match_data
 
     else:
         return match_data
+    
+def home_away_to_team_opponent(df: pd.DataFrame) -> pd.DataFrame:
+    """Converts a dataframe with scores in home-away format to a dataframe containing team-games.
+
+    Parameters
+    ----------
+    df : pd.DataFrame
+        The dataframe of home & away results to process.
+
+    Returns
+    -------
+    pd.DataFrame
+        A dataframe containing team-games
+    """
+
+    team_games = []
+
+    for _, row in df.iterrows():
+        home_game = {
+            "team": row[c.HOME],
+            "opponent": row[c.AWAY],
+            "team_score": row[c.HOME_G],
+            "opponent_score": row[c.AWAY_G],
+            "team_xg": row[c.HOME_XG],
+            "opponent_xg": row[c.AWAY_XG],
+            c.LEAGUE: row[c.LEAGUE],
+            c.GAME_DATE: row[c.GAME_DATE], 
+            c.SEASON : row[c.SEASON]
+        }
+        away_game = {
+            "team": row[c.AWAY],
+            "opponent": row[c.HOME],
+            "team_score": row[c.AWAY_G],
+            "opponent_score": row[c.HOME_G],
+            "team_xg": row[c.AWAY_XG],
+            "opponent_xg": row[c.HOME_XG],
+            c.LEAGUE: row[c.LEAGUE],
+            c.GAME_DATE: row[c.GAME_DATE], 
+            c.SEASON : row[c.SEASON]
+        }
+        team_games.append(home_game)
+        team_games.append(away_game)
+
+    team_games_df = pd.DataFrame(team_games)
+
+    output_df = team_games_df[["team", "opponent", c.LEAGUE, c.SEASON, c.GAME_DATE, "team_score", "opponent_score", "team_xg", "opponent_xg"]]
+    output_df["goal_diff"] = output_df["team_score"] - output_df["opponent_score"]
+    output_df["xg_diff"] = output_df["team_xg"] - output_df["opponent_xg"]
+
+    return output_df
