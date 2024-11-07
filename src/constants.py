@@ -10,6 +10,7 @@ LEAGUE_ONE = "League One"
 LEAGUE_TWO = "League Two"
 
 ENGLISH_LEAGUES = [PREMIER_LEAGUE, CHAMPIONSHIP, LEAGUE_ONE, LEAGUE_TWO]
+ENGLISH_LEAGUES_WITH_XG = [PREMIER_LEAGUE, CHAMPIONSHIP]
 
 # This dictionary maps leagues to their FBRef league IDs.
 LEAGUE_ID_MAPPING = {
@@ -18,3 +19,18 @@ LEAGUE_ID_MAPPING = {
     LEAGUE_ONE : 15,
     LEAGUE_TWO : 16
 }
+
+HOME = "home_team"
+AWAY = "away_team"
+HOME_G = "home_score"
+AWAY_G = "away_score"
+HOME_XG = "home_xg"
+AWAY_XG = "away_xg"
+LEAGUE = "league"
+GAME_DATE = "date"
+SCORE = "score"
+
+MATCH_DATA_COLUMNS = [HOME, AWAY, LEAGUE, GAME_DATE, HOME_G, AWAY_G, HOME_XG, AWAY_XG]
+MATCH_DATA_CSV = "match_data.csv"
+
+DEFAULT_SLEEP = 5
