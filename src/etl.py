@@ -6,7 +6,7 @@ from urllib.request import urlopen
 from bs4 import BeautifulSoup
 import pandas as pd
 
-from typing import List
+from typing import List, Tuple, Dict, Any
 
 import logging
 
@@ -251,3 +251,40 @@ def home_away_to_team_opponent(df: pd.DataFrame) -> pd.DataFrame:
     output_df["xg_diff"] = output_df["team_xg"] - output_df["opponent_xg"]
 
     return output_df
+
+def preprocess_data(input_df: pd.DataFrame, subset: bool = False, past_games: bool = True) -> Tuple[pd.DataFrame, dict]:
+
+    if past_games:
+        input_df = input_df.dropna().reset_index(drop=True)
+
+    # Encoders for league, season, and teams:
+    _ , teams = pd.factorize(pd.concat([input_df[c.HOME], input_df[c.AWAY]]), sort=True)
+    _ , leagues = pd.factorize(input_df[c.LEAGUE], sort=True)
+    _ , seasons = pd.factorize(input_df[c.SEASON], sort=True)
+
+    # Creating new index columns using the encoders
+    input_df[c.HOME + c.INDEX_SUFFIX] = pd.Series(pd.Categorical(input_df[c.HOME], categories=teams).codes)
+    input_df[c.AWAY + c.INDEX_SUFFIX] = pd.Series(pd.Categorical(input_df[c.AWAY], categories=teams).codes)
+    input_df[c.LEAGUE + c.INDEX_SUFFIX] = pd.Series(pd.Categorical(input_df[c.LEAGUE], categories=leagues).codes)
+    input_df[c.SEASON + c.INDEX_SUFFIX] = pd.Series(pd.Categorical(input_df[c.SEASON], categories=seasons).codes)
+    input_df = input_df.reset_index(drop=True)
+
+    # Optionally, subset the `input_df` to contain *only* modeling columns.
+    if subset:
+        input_df = input_df[c.MODEL_VARIABLES]
+
+    encoders = {'teams' : teams, 'leagues' : leagues, 'seasons' : seasons}
+
+    model_dict = dataframe_to_pymc_dict(processed_df=input_df)
+    model_coords = {'teams' : teams, 'leagues' : leagues, 'seasons' : seasons, 'matches' : list(range(len(input_df.index)))}
+    
+    return input_df, encoders, model_dict, model_coords
+
+def dataframe_to_pymc_dict(processed_df: pd.DataFrame) -> Dict[str, Any]:
+
+    pymc_dict = dict()
+
+    for feature in c.MODEL_VARIABLES:
+        pymc_dict[feature] = processed_df[feature]
+
+    return pymc_dict
