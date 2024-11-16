@@ -252,39 +252,42 @@ def home_away_to_team_opponent(df: pd.DataFrame) -> pd.DataFrame:
 
     return output_df
 
-def preprocess_data(input_df: pd.DataFrame, subset: bool = False, past_games: bool = True) -> Tuple[pd.DataFrame, dict]:
+def format_data_for_stan(input_df: pd.DataFrame) -> dict:
+    """Formats raw data for compilation into the Stan model.
 
-    if past_games:
-        input_df = input_df.dropna().reset_index(drop=True)
+    Parameters
+    ----------
+    input_df : pd.DataFrame
+        a dataframe from match_data.csv 
 
-    # Encoders for league, season, and teams:
-    _ , teams = pd.factorize(pd.concat([input_df[c.HOME], input_df[c.AWAY]]), sort=True)
-    _ , leagues = pd.factorize(input_df[c.LEAGUE], sort=True)
-    _ , seasons = pd.factorize(input_df[c.SEASON], sort=True)
+    Returns
+    -------
+    dict
+        A dictionary containing all necessary data for Stan to compile the model.
+    """
 
-    # Creating new index columns using the encoders
-    input_df[c.HOME + c.INDEX_SUFFIX] = pd.Series(pd.Categorical(input_df[c.HOME], categories=teams).codes)
-    input_df[c.AWAY + c.INDEX_SUFFIX] = pd.Series(pd.Categorical(input_df[c.AWAY], categories=teams).codes)
-    input_df[c.LEAGUE + c.INDEX_SUFFIX] = pd.Series(pd.Categorical(input_df[c.LEAGUE], categories=leagues).codes)
-    input_df[c.SEASON + c.INDEX_SUFFIX] = pd.Series(pd.Categorical(input_df[c.SEASON], categories=seasons).codes)
-    input_df = input_df.reset_index(drop=True)
+    n_games = len(input_df.index)
 
-    # Optionally, subset the `input_df` to contain *only* modeling columns.
-    if subset:
-        input_df = input_df[c.MODEL_VARIABLES]
+    season_idx, seasons = pd.factorize(input_df[c.SEASON])
 
-    encoders = {'teams' : teams, 'leagues' : leagues, 'seasons' : seasons}
+    ## we need the following 
 
-    model_dict = dataframe_to_pymc_dict(processed_df=input_df)
-    model_coords = {'teams' : teams, 'leagues' : leagues, 'seasons' : seasons, 'matches' : list(range(len(input_df.index)))}
-    
-    return input_df, encoders, model_dict, model_coords
+#     data {
+#     int<lower=1> n_teams; // unique teams in the dataset
+#     int<lower=1> n_games; // unique games in the dataset
 
-def dataframe_to_pymc_dict(processed_df: pd.DataFrame) -> Dict[str, Any]:
+#     int<lower=1> n_seasons; // unique seasons in the dataset
+#     array[n_games] int<lower=1, upper=n_seasons> season; // indexer for seasons
 
-    pymc_dict = dict()
+#     array[n_games] int<lower=1, upper=n_teams> home_team_code; // home team index
+#     array[n_games] int<lower=1, upper=n_teams> away_team_code; // away team index
 
-    for feature in c.MODEL_VARIABLES:
-        pymc_dict[feature] = processed_df[feature]
+#     array[n_games] int home_goals; // home goals scored in match
+#     array[n_games] int away_goals; // away goals scored in match
 
-    return pymc_dict
+#     array[n_games] int home; // 1 if home, 0 o.w.
+#     array[n_games] int away; // 1 if away, 0 o.w.
+
+#     array[n_games] real home_xg; // home xG totaled in match
+#     array[n_games] real away_xg; // away xG totaled in match
+# }
