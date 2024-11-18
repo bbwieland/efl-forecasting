@@ -252,13 +252,46 @@ def home_away_to_team_opponent(df: pd.DataFrame) -> pd.DataFrame:
 
     return output_df
 
-def format_data_for_stan(input_df: pd.DataFrame) -> dict:
+def encode_teams(input_df: pd.DataFrame) -> Tuple[pd.array, pd.array, pd.array]:
+    """Encodes team IDs as categorical integers. 
+
+    Parameters
+    ----------
+    input_df : pd.DataFrame
+        The input dataframe to extract team encodings from.
+
+    Returns
+    -------
+    Tuple[pd.array, pd.array, pd.array]
+        _description_
+    """
+
+    home_teams = input_df[c.HOME]
+    away_teams = input_df[c.AWAY]
+    teams = pd.concat([home_teams, away_teams])
+
+    _ , team_labels = pd.factorize(teams, sort=True)
+
+    home_idx = pd.Categorical(home_teams, categories=team_labels)
+    away_idx = pd.Categorical(away_teams, categories=team_labels)
+
+    return home_idx, away_idx, team_labels
+
+def encode_seasons(input_df: pd.DataFrame) -> Tuple[pd.array, pd.array]:
+
+    seasons = input_df[c.SEASON]
+
+
+def format_data_for_stan(input_df: pd.DataFrame, past_matches: bool = True) -> dict:
     """Formats raw data for compilation into the Stan model.
 
     Parameters
     ----------
     input_df : pd.DataFrame
         a dataframe from match_data.csv 
+    
+    past_matches : bool, optional
+        Whether to filter to only previous matches, defaults to True
 
     Returns
     -------

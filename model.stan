@@ -3,10 +3,10 @@ data {
     int<lower=1> n_games; // unique games in the dataset
 
     int<lower=1> n_seasons; // unique seasons in the dataset
-    array[n_games] int<lower=1, upper=n_seasons> season; // indexer for seasons
+    array[n_games] int<lower=0, upper=n_seasons-1> season; // indexer for seasons
 
-    array[n_games] int<lower=1, upper=n_teams> home_team_code; // home team index
-    array[n_games] int<lower=1, upper=n_teams> away_team_code; // away team index
+    array[n_games] int<lower=0, upper=n_teams-1> home_team_code; // home team index
+    array[n_games] int<lower=0, upper=n_teams-1> away_team_code; // away team index
 
     array[n_games] int home_goals; // home goals scored in match
     array[n_games] int away_goals; // away goals scored in match
