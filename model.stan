@@ -1,12 +1,11 @@
 data {
-    int<lower=1> n_teams; // unique teams in the dataset
-    int<lower=1> n_games; // unique games in the dataset
+    int n_teams; // unique teams in the dataset
+    int n_games; // unique games in the dataset
+    int n_seasons; // unique seasons in the dataset
 
-    int<lower=1> n_seasons; // unique seasons in the dataset
-    array[n_games] int<lower=0, upper=n_seasons-1> season; // indexer for seasons
-
-    array[n_games] int<lower=0, upper=n_teams-1> home_team_code; // home team index
-    array[n_games] int<lower=0, upper=n_teams-1> away_team_code; // away team index
+    array[n_games] int<lower=0, upper=n_seasons> season; // indexer for seasons
+    array[n_games] int<lower=0, upper=n_teams> home_team_code; // home team index
+    array[n_games] int<lower=0, upper=n_teams> away_team_code; // away team index
 
     array[n_games] int home_goals; // home goals scored in match
     array[n_games] int away_goals; // away goals scored in match
@@ -43,8 +42,8 @@ model {
 
     // Priors
 
-    home_xg_intercept ~ normal(1.5, 1);
-    away_xg_intercept ~ normal(1.5, 1);
+    home_xg_intercept ~ normal(1.5, 0.2);
+    away_xg_intercept ~ normal(1.5, 0.2);
 
     gamma_theta ~ uniform(0, 1);
     gamma_rho ~ uniform(0, 1);
@@ -52,8 +51,8 @@ model {
     sigma_off_resid ~ exponential(5);
     sigma_def_resid ~ exponential(5);
 
-    sigma_off_xg ~ exponential(2);
-    sigma_def_xg ~ exponential(2);
+    sigma_off_xg ~ exponential(5);
+    sigma_def_xg ~ exponential(5);
 
     // Autoregressive state-space team-level parameters, AR(1)
 
@@ -94,6 +93,16 @@ model {
         Ey_home[g] = home_xg_intercept * home[g] + theta_off[home_team_code[g], season[g]] - theta_def[away_team_code[g], season[g]] + rho_off[home_team_code[g], season[g]] - rho_def[away_team_code[g], season[g]];
         Ey_away[g] = away_xg_intercept * away[g] + theta_off[away_team_code[g], season[g]] - theta_def[home_team_code[g], season[g]] + rho_off[away_team_code[g], season[g]] - rho_def[home_team_code[g], season[g]];
 
+    }
+
+    for (g in 1:n_games) {
+        if (Ey_home[g] < 0.05) {
+           Ey_home[g] = 0.05;
+        }
+
+        if (Ey_away[g] < 0.05) {
+           Ey_away[g] = 0.05;
+        }
     }
 
     home_goals ~ poisson(Ey_home);

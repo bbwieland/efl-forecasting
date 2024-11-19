@@ -5,6 +5,7 @@ import time
 from urllib.request import urlopen
 from bs4 import BeautifulSoup
 import pandas as pd
+import numpy as np
 
 from typing import List, Tuple, Dict, Any
 
@@ -263,7 +264,7 @@ def encode_teams(input_df: pd.DataFrame) -> Tuple[pd.array, pd.array, pd.array]:
     Returns
     -------
     Tuple[pd.array, pd.array, pd.array]
-        _description_
+        A tuple of home team indexes, away team indexes, and home/away labels
     """
 
     home_teams = input_df[c.HOME]
@@ -272,14 +273,19 @@ def encode_teams(input_df: pd.DataFrame) -> Tuple[pd.array, pd.array, pd.array]:
 
     _ , team_labels = pd.factorize(teams, sort=True)
 
-    home_idx = pd.Categorical(home_teams, categories=team_labels)
-    away_idx = pd.Categorical(away_teams, categories=team_labels)
+    home_idx = pd.Categorical(home_teams, categories=team_labels).codes
+    away_idx = pd.Categorical(away_teams, categories=team_labels).codes
 
     return home_idx, away_idx, team_labels
 
 def encode_seasons(input_df: pd.DataFrame) -> Tuple[pd.array, pd.array]:
 
     seasons = input_df[c.SEASON]
+    _ , season_labels = pd.factorize(seasons, sort=True)
+
+    season_idx = pd.Categorical(seasons, categories=season_labels).codes
+
+    return season_idx, season_labels
 
 
 def format_data_for_stan(input_df: pd.DataFrame, past_matches: bool = True) -> dict:
@@ -299,28 +305,44 @@ def format_data_for_stan(input_df: pd.DataFrame, past_matches: bool = True) -> d
         A dictionary containing all necessary data for Stan to compile the model.
     """
 
+    if past_matches:
+        input_df = input_df.dropna()
+
     n_games = len(input_df.index)
 
-    season_idx, seasons = pd.factorize(input_df[c.SEASON])
+    home_idx, away_idx, team_labels = encode_teams(input_df=input_df)
+    season_idx, season_labels = encode_seasons(input_df=input_df)
 
-    ## we need the following 
+    n_teams = len(team_labels)
+    n_seasons = len(season_labels)
 
-#     data {
-#     int<lower=1> n_teams; // unique teams in the dataset
-#     int<lower=1> n_games; // unique games in the dataset
+    home_goals = input_df[c.HOME_G].astype('int') 
+    away_goals = input_df[c.AWAY_G].astype('int')
 
-#     int<lower=1> n_seasons; // unique seasons in the dataset
-#     array[n_games] int<lower=1, upper=n_seasons> season; // indexer for seasons
+    home_xg = input_df[c.HOME_XG]
+    away_xg = input_df[c.AWAY_XG]
 
-#     array[n_games] int<lower=1, upper=n_teams> home_team_code; // home team index
-#     array[n_games] int<lower=1, upper=n_teams> away_team_code; // away team index
+    home = np.repeat(1, n_games)
+    away = np.repeat(1, n_games)
 
-#     array[n_games] int home_goals; // home goals scored in match
-#     array[n_games] int away_goals; // away goals scored in match
+    stan_dict = {
+        'n_teams' : n_teams,
+        'n_games' : n_games,
+        'n_seasons' : n_seasons, 
+        'season' : season_idx + 1,
+        'home_team_code' : home_idx + 1,
+        'away_team_code' : away_idx + 1,
+        'home_goals' : home_goals,
+        'away_goals' : away_goals,
+        'home_xg' : home_xg,
+        'away_xg' : away_xg,
+        'home' : home,
+        'away' : away
+    }
 
-#     array[n_games] int home; // 1 if home, 0 o.w.
-#     array[n_games] int away; // 1 if away, 0 o.w.
+    coords_dict = {
+        'teams' : team_labels,
+        'seasons' : season_labels
+    }
 
-#     array[n_games] real home_xg; // home xG totaled in match
-#     array[n_games] real away_xg; // away xG totaled in match
-# }
+    return stan_dict, coords_dict
