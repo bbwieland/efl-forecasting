@@ -278,6 +278,15 @@ def encode_teams(input_df: pd.DataFrame) -> Tuple[pd.array, pd.array, pd.array]:
 
     return home_idx, away_idx, team_labels
 
+def encode_leagues(input_df: pd.DataFrame) -> Tuple[pd.array, pd.array]:
+
+    leagues = input_df[c.LEAGUE]
+    _ , league_labels = pd.factorize(leagues, sort=True)
+
+    league_idx = pd.Categorical(leagues, categories=league_labels).codes
+
+    return league_idx, league_labels
+
 def encode_seasons(input_df: pd.DataFrame) -> Tuple[pd.array, pd.array]:
 
     seasons = input_df[c.SEASON]
@@ -312,9 +321,11 @@ def format_data_for_stan(input_df: pd.DataFrame, past_matches: bool = True) -> d
 
     home_idx, away_idx, team_labels = encode_teams(input_df=input_df)
     season_idx, season_labels = encode_seasons(input_df=input_df)
+    league_idx, league_labels = encode_leagues(input_df=input_df)
 
     n_teams = len(team_labels)
     n_seasons = len(season_labels)
+    n_leagues = len(league_labels)
 
     home_goals = input_df[c.HOME_G].astype('int') 
     away_goals = input_df[c.AWAY_G].astype('int')
@@ -329,9 +340,11 @@ def format_data_for_stan(input_df: pd.DataFrame, past_matches: bool = True) -> d
         'n_teams' : n_teams,
         'n_games' : n_games,
         'n_seasons' : n_seasons, 
+        'n_leagues' : n_leagues,
         'season' : season_idx + 1,
         'home_team_code' : home_idx + 1,
         'away_team_code' : away_idx + 1,
+        'league_code' : league_idx + 1,
         'home_goals' : home_goals,
         'away_goals' : away_goals,
         'home_xg' : home_xg,
@@ -342,7 +355,8 @@ def format_data_for_stan(input_df: pd.DataFrame, past_matches: bool = True) -> d
 
     coords_dict = {
         'teams' : team_labels,
-        'seasons' : season_labels
+        'seasons' : season_labels,
+        'leagues' : league_labels
     }
 
     return stan_dict, coords_dict
