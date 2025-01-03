@@ -1,7 +1,7 @@
 import argparse
 from typing import Tuple
-import src.constants as c
-import src.etl as etl
+import constants as c
+import etl as etl
 
 def get_args() -> Tuple[str, any]:
     """
